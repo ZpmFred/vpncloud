@@ -3,10 +3,11 @@
 // This software is licensed under GPL-3 or newer (see LICENSE.md)
 
 #[macro_use] mod helper;
-mod connect;
+mod peers;
 mod payload;
 
 pub use std::net::SocketAddr;
+use std::sync::atomic::{Ordering, AtomicUsize};
 
 pub use super::ethernet::{self, SwitchTable};
 pub use super::util::MockTimeSource;
@@ -23,21 +24,32 @@ pub use super::ip::{self, RoutingTable};
 type TestNode<P, T> = GenericCloud<MockDevice, P, T, MockSocket, MockTimeSource>;
 
 type TapTestNode = TestNode<ethernet::Frame, SwitchTable<MockTimeSource>>;
+#[allow(dead_code)]
 type TunTestNode = TestNode<ip::Packet, RoutingTable>;
 
 
+thread_local! {
+    static NEXT_PORT: AtomicUsize = AtomicUsize::new(1);
+}
+
 fn create_tap_node() -> TapTestNode {
+    create_tap_node_with_config(Config::default())
+}
+
+fn create_tap_node_with_config(mut config: Config) -> TapTestNode {
+    config.port = NEXT_PORT.with(|p| p.fetch_add(1, Ordering::Relaxed)) as u16;
     TestNode::new(
-        &Config::default(),
+        &config,
         MockDevice::new(),
         SwitchTable::new(1800, 10),
         true, true, vec![], Crypto::None, None
     )
 }
 
+#[allow(dead_code)]
 fn create_tun_node(addresses: Vec<Range>) -> TunTestNode {
     TestNode::new(
-        &Config::default(),
+        &Config { port: NEXT_PORT.with(|p| p.fetch_add(1, Ordering::Relaxed)) as u16, ..Config::default() },
         MockDevice::new(),
         RoutingTable::new(),
         false, false, addresses, Crypto::None, None
@@ -51,6 +63,7 @@ fn msg4_get<P: Protocol, T: Table>(node: &mut TestNode<P, T>) -> (SocketAddr, Ve
     msg.unwrap()
 }
 
+#[allow(dead_code)]
 fn msg6_get<P: Protocol, T: Table>(node: &mut TestNode<P, T>) -> (SocketAddr, Vec<u8>) {
     let msg = node.socket6().pop_outbound();
     assert!(msg.is_some());
@@ -68,7 +81,7 @@ fn msg6_put<P: Protocol, T: Table>(node: &mut TestNode<P, T>, from: SocketAddr, 
 }
 
 fn simulate<P: Protocol, T: Table>(nodes: &mut [(&mut TestNode<P, T>, SocketAddr)]) {
-    for (ref mut node, ref from_addr) in nodes.iter_mut() {
+    for (ref mut node, ref _from_addr) in nodes.iter_mut() {
         while node.device().has_inbound() {
             node.trigger_device_event();
         }

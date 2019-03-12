@@ -9,6 +9,7 @@ homepage = "https://vpncloud.ddswd.de"
 repository = "https://github.com/dswd/vpncloud"
 keywords = ["vpn", "p2p", "tun", "tap", "network"]
 readme = "README.md"
+edition = "2018"
 
 [dependencies]
 time = "0.1"
@@ -39,7 +40,6 @@ tempfile = "3"
 [features]
 default = []
 bench = []
-system-libsodium = []
 
 [profile.release]
 lto = true
@@ -65,3 +65,9 @@ assets = [
   ["assets/vpncloud@.service", "/lib/systemd/system/vpncloud@.service", "644"],
   ["target/vpncloud.1.gz", "/usr/share/man/man1/vpncloud.1.gz", "644"]
 ]
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+vpncloud = { path = "/usr/bin/vpncloud" }
