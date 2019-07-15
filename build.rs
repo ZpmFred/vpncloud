@@ -27,6 +27,8 @@ fn main() {
         Err(err) => {
             println!("cargo:warning=Error building manpage: {}", err);
             println!("cargo:warning=The manpage will not be build. Do you have 'ronn'?");
+            fs::copy("assets/vpncloud.1", "target/vpncloud.1").unwrap();
+            Command::new("gzip").args(&["target/vpncloud.1"]).status().unwrap();
         }
     }
 }
